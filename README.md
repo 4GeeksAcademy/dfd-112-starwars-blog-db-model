@@ -1,7 +1,7 @@
 
 ---
 
-<p align="center"><img src="src/DIAGRAMS/1st_diagram.png" alt="API Documentation"></p>
+<p align="center"><img src="src/DIAGRAMS/Final_diagram.png" alt="API Documentation"></p>
 
 ---
 

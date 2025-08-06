@@ -548,8 +548,8 @@ class FavoriteVehicles(db.Model):
     ### ATTRIBUTES ###
 
     id:         Mapped[int]      = mapped_column( primary_key=True)
-    user_id:    Mapped[int]      = mapped_column( ForeignKey('user.id'),    nullable=False)
-    vehicle_id: Mapped[int]     = mapped_column( ForeignKey('vehicle.id'),  nullable=False)
+    user_id:    Mapped[int]      = mapped_column( ForeignKey('user.id'),     nullable=False)
+    vehicle_id: Mapped[int]      = mapped_column( ForeignKey('vehicle.id'),  nullable=False)
     created_at: Mapped[datetime] = mapped_column( DateTime(timezone=True), default=func.now(), nullable=False)
 
     ### TABLE CONSTRAINTS ###
