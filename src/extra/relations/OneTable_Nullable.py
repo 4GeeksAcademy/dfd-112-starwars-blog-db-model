@@ -1,8 +1,8 @@
+
 from flask_sqlalchemy import SQLAlchemy
 from typing import List, Optional
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, func, Boolean, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-# from sqlalchemy.orm import DeclarativeBase, declarative_base ### ---> SIN USAR
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, func, Boolean
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, declarative_base
 from datetime import datetime, timezone
 
 
@@ -19,22 +19,19 @@ TO-DOs:
 
 [x] Create tables for STAR WARS Database Model:
 
-Create user and category tables:
+Project delivery version:
     [x] User
+    [x] Favorite
     [x] People
     [x] Planet
     [x] Vehicle
-
-
-Create Favorite handling tables:
-    [x] People  favorites
-    [x] Planet  favorites
-    [x] Vehicle favorites
 """
 
+# class Base(DeclarativeBase):   # ------> This one DOES NOT work
+#     pass
 
 db = SQLAlchemy()
-
+# class User(db.Model):
 
 ############################################
 ###########         USER         ###########
@@ -54,9 +51,7 @@ TO-DO's:
     [x] creation
 
 [x] Create Relations
-    [x] with FavoriteCharacters
-    [x] with FavoritePlanets
-    [x] with FavoriteVehicles
+    [x] with Favorite
 
 [x] Create serialization
 
@@ -77,40 +72,23 @@ class User(db.Model):
 
     ### RELATIONS ###
 
-    # One-to-many relationship with FavoriteCharacters - shows all characters this user has favorited
-    favorite_people: Mapped[List["FavoritePeople"]] = relationship(
-        back_populates='user', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
-
-    # One-to-many relationship with FavoritePlanets - shows all planets this user has favorited
-    favorite_planets: Mapped[List["FavoritePlanets"]] = relationship(
-        back_populates='user', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
-
-    # One-to-many relationship with FavoriteVehicles - shows all vehicles this user has favorited
-    favorite_vehicles: Mapped[List["FavoriteVehicles"]] = relationship(
-        back_populates='user', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
-
+    # One-to-Many relationship with Favorites --> shows all items this user has favorited
+    favorites: Mapped[List["Favorite"]] = relationship(
+        back_populates="user",
+        lazy="select",
+        cascade="all, delete-orphan"  # Delete favorites when user is deleted
+        )
+    
 
     ### SERIALIZATION ###
     def serialize(self):
         return {
-            "id":            self.id,
-            "is_active":     self.is_active,
-            "email":         self.email,
-            "username":      self.username,
-            "name":          self.name,
-            "creation_date": self.creation.isoformat() if self.creation else None,
-            "favorite_characters": [fav.serialize() for fav in self.favorite_people],
-            "favorite_planets":    [fav.serialize() for fav in self.favorite_planets],
-            "favorite_vehicles":   [fav.serialize() for fav in self.favorite_vehicles],
+            "id":          self.id,
+            "is_active":   self.is_active,
+            "email":       self.email,
+            "username":    self.username,
+            "name":        self.name,
+            "favorites":   [favorite.serialize() for favorite in self.favorites]
             # do not serialize the password, its a security breach !!!
         }
     
@@ -143,7 +121,7 @@ TO-DO's:
     [x] edited
 
 [x] Create Relations
-    [x] with FavoritePeople
+    [x] with Favorite
 
 [x] Create serialization
 
@@ -171,12 +149,11 @@ class People(db.Model):
 
     ### RELATIONS ###
 
-    # One-to-many relationship with FavoriteCharacters - shows which users have favorited this character
-    favorite_by: Mapped[List["FavoritePeople"]] = relationship(
-        back_populates='people', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
+    # One-to-many relationship with Favorite - shows which users have favorited this person
+    favorites: Mapped[List["Favorite"]] = relationship(
+        back_populates="people",
+        lazy="select"
+        )
 
     ### SERIALIZATION ###
     def serialize(self):
@@ -202,77 +179,6 @@ class People(db.Model):
     def __repr__(self): 
         return f"<People {self.id} - {self.name}>"
 
-
-#######################################
-#######    FavoritePeople    ##########
-#######################################
-"""
-Represents which people/characters each user has marked as favorites.
-
-TO-DO's:
-
-[x] Name the table with "__tablename__ ="
-
-[x] Create Attributes:
-    [x] id
-    [x] user_id     (Foreign Key)
-    [x] people_id   (Foreign Key)
-    [x] created_at  (tracking when favorite was added)
-
-[x] Create Relations
-    [x] with User
-    [x] with People
-
-[x] Create serialization
-
-[x] Create "__repr__" method
-
-[x] Add unique constraint to prevent duplicate favorites
-"""
-class FavoritePeople(db.Model):
-    __tablename__ = 'favorite_people'
-
-    ### ATTRIBUTES ###
-    id:         Mapped[int]      = mapped_column( primary_key=True)
-    user_id:    Mapped[int]      = mapped_column( ForeignKey('user.id'),   nullable=False)
-    people_id:  Mapped[int]      = mapped_column( ForeignKey('people.id'), nullable=False)
-    created_at: Mapped[datetime] = mapped_column( DateTime(timezone=True), default=func.now(), nullable=False)
-
-    ### TABLE CONSTRAINTS ###
-    __table_args__ = (
-        UniqueConstraint('user_id', 'people_id', name='unique_user_character_favorite'),
-    )
-
-    ### RELATIONS ###
-
-    # Many-to-one relationship with User - the user who favorited this character
-    user: Mapped["User"] = relationship(
-        back_populates='favorite_people'
-        )
-    
-    # Many-to-one relationship with People - the character being favorited
-    people: Mapped["People"] = relationship(
-        back_populates='favorite_by'
-        )
-
-    ### SERIALIZATION ###
-    def serialize(self):
-        return {
-            "id":           self.id,
-            "user_id":      self.user_id,
-            "people_id":    self.people_id,
-            "character":    self.people.serialize(),
-            "created_at":   self.created_at.isoformat() if self.created_at else None
-        }
-
-
-    ### __repr__ METHOD ###
-
-    def __repr__(self):
-        return f'<FavoritePeople ... User:{self.user_id} --> Character:{self.people_id}>'
-
-
-
 ############################################
 ##########         Planet         ##########
 ############################################
@@ -295,12 +201,12 @@ TO-DO's:
     [x] created
     [x] edited
 
-[x] Create Relations
-    [x] with FavoritePlanets
+[] Create Relations
+    [] with Favorite
 
-[x] Create serialization
+[] Create serialization
 
-[x] Create "__repr__" method
+[] Create "__repr__" method
 """
 class Planet(db.Model):
     __tablename__ = 'planet'
@@ -316,19 +222,17 @@ class Planet(db.Model):
     climate:         Mapped[str] = mapped_column( String(100),                   nullable=False)
     terrain:         Mapped[str] = mapped_column( String(100),                   nullable=False)
     surface_water:   Mapped[str] = mapped_column( String(100),                   nullable=False)
-    url:             Mapped[str] = mapped_column( String(100), unique=True,      nullable=False)
     created:         Mapped[datetime] = mapped_column( DateTime(timezone=True), default=func.now(), nullable=False)
     edited:          Mapped[Optional[datetime]] = mapped_column( DateTime(timezone=True), default=func.now(), onupdate=func.now())
 
 
     ### RELATIONS ###
 
-    # One-to-many relationship with FavoritePlanets - shows which users have favorited this planet
-    favorite_by: Mapped[List["FavoritePlanets"]] = relationship(
-        back_populates='planet', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
+    # One-to-many relationship with Favorite - shows which users have favorited this planet
+    favorites: Mapped[List["Favorite"]] = relationship(
+        back_populates="planet",
+        lazy="select"
+        )
 
 
     ### SERIALIZATION ###
@@ -344,7 +248,6 @@ class Planet(db.Model):
             "climate":         self.climate,
             "terrain":         self.terrain,
             "surface_water":   self.surface_water,
-            "url":             self.url,
             "created":         self.created.isoformat()  if self.created else None,
             "edited":          self.edited.isoformat()   if self.edited  else None
         }
@@ -354,76 +257,6 @@ class Planet(db.Model):
 
     def __repr__(self):
         return f"<Planet {self.id} - {self.name}>"
-
-
-
-############################################
-#########     FavoritePlanets    ###########
-############################################
-"""
-Represents which planets each user has marked as favorites.
-
-TO-DO's:
-
-[x] Name the table with "__tablename__ ="
-
-[x] Create Attributes:
-    [x] id
-    [x] user_id    (Foreign Key)
-    [x] planet_id  (Foreign Key)
-    [x] created_at (added for tracking when favorite was added)
-
-[x] Create Relations
-    [x] with User
-    [x] with Planet
-
-[x] Create serialization
-
-[x] Create "__repr__" method
-
-[x] Add unique constraint to prevent duplicate favorites
-"""
-class FavoritePlanets(db.Model):
-    __tablename__ = 'favorite_planets'
-
-    ### ATTRIBUTES ###
-    
-    id:         Mapped[int]      = mapped_column( primary_key=True)
-    user_id:    Mapped[int]      = mapped_column( ForeignKey('user.id'),   nullable=False)
-    planet_id:  Mapped[int]      = mapped_column( ForeignKey('planet.id'), nullable=False)
-    created_at: Mapped[datetime] = mapped_column( DateTime(timezone=True), default=func.now(), nullable=False)
-
-    ### TABLE CONSTRAINTS ###
-    __table_args__ = (
-        UniqueConstraint('user_id', 'planet_id', name='unique_user_planet_favorite'),
-    )
-
-    ### RELATIONS ###
-
-    # Many-to-one relationship with User - the user who favorited this planet
-    user: Mapped["User"] = relationship(
-        back_populates='favorite_planets'
-        )
-
-    # Many-to-one relationship with Planet - the planet being favorited
-    planet: Mapped["Planet"] = relationship(
-        back_populates='favorite_by'
-        )
-
-    ### SERIALIZATION ###
-    def serialize(self):
-        return {
-            "id":         self.id,
-            "user_id":    self.user_id,
-            "planet_id":  self.planet_id,
-            "planet":     self.planet.serialize(),
-            "created_at": self.created_at.isoformat() if self.created_at else None
-        }
-
-    ### __repr__ METHOD ###
-
-    def __repr__(self):
-        return f'<FavoritePlanet ... User:{self.user_id} --> Planet:{self.planet_id}>'
 
 
 ############################################
@@ -452,7 +285,7 @@ TO-DO's:
     [x] edited
 
 [x] Create Relations
-    [x] with FavoriteVehicles
+    [x] with Favorite
 
 [x] Create serialization
 
@@ -481,12 +314,11 @@ class Vehicle(db.Model):
 
     ### RELATIONS ###
 
-    # One-to-many relationship with FavoriteVehicles - shows which users have favorited this vehicle
-    favorite_by: Mapped[List["FavoriteVehicles"]] = relationship(
-        back_populates='vehicle', 
-        cascade='all, delete-orphan',
-        lazy='select'
-    )
+    # One-to-many relationship with Favorite - shows which users have favorited this vehicle
+    favorites: Mapped[List["Favorite"]] = relationship(
+        back_populates="vehicle",
+        lazy="select"
+        )
 
     ### SERIALIZATION ###
     def serialize(self):
@@ -515,99 +347,127 @@ class Vehicle(db.Model):
         return f"<Vehicle {self.id} - {self.name} - {self.model} - {self.vehicle_class}>"
     
 
-
-############################################
-#########    FavoriteVehicles    ##########
-############################################
-"""
-Represents which vehicles each user has marked as favorites.
-
-TO-DO's:
-
-[x] Name the table with "__tablename__ ="
-
-[x] Create Attributes:
-    [x] id
-    [x] user_id     (Foreign Key)
-    [x] vehicle_id  (Foreign Key)
-    [x] created_at  (added for tracking when favorite was added)
-
-[x] Create Relations
-    [x] with User
-    [x] with Vehicle
-
-[x] Create serialization
-
-[x] Create "__repr__" method
-
-[x] Add unique constraint to prevent duplicate favorites
-"""
-class FavoriteVehicles(db.Model):
-    __tablename__ = 'favorite_vehicles'
-
-    ### ATTRIBUTES ###
-
-    id:         Mapped[int]      = mapped_column( primary_key=True)
-    user_id:    Mapped[int]      = mapped_column( ForeignKey('user.id'),    nullable=False)
-    vehicle_id: Mapped[int]     = mapped_column( ForeignKey('vehicle.id'),  nullable=False)
-    created_at: Mapped[datetime] = mapped_column( DateTime(timezone=True), default=func.now(), nullable=False)
-
-    ### TABLE CONSTRAINTS ###
-    __table_args__ = (
-        UniqueConstraint('user_id', 'vehicle_id', name='unique_user_vehicle_favorite'),
-    )
-
-
-    ### RELATIONS ###
-
-    # Many-to-one relationship with User - the user who favorited this vehicle
-    user: Mapped["User"] = relationship(
-        back_populates='favorite_vehicles'
-        )
-    
-    # Many-to-one relationship with Vehicle - the vehicle being favorited
-    vehicle: Mapped["Vehicle"] = relationship(
-        back_populates='favorite_by'
-        )
-
-    ### SERIALIZATION ###
-    def serialize(self):
-        return {
-            "id":          self.id,
-            "user_id":     self.user_id,
-            "vehicle_id":  self.vehicle_id,
-            "vehicle":     self.vehicle.serialize(),
-            "created_at":  self.created_at.isoformat() if self.created_at else None
-        }
-
-
-    ### __repr__ METHOD ###
-
-    def __repr__(self):
-        return f'<FavoriteVehicle ... User:{self.user_id} --> Vehicle:{self.vehicle_id}>'
-
 #######  -------------------------------------------------------------------------  ######
 
 
 #################################################################
 #################################################################
 ##################      Favorites HANDLING     ##################
-##################        MULTIPLE tables      ##################
-##################       without nullables     ##################
+##################           ONE table         ##################
+##################         with nullables      ##################
 #################################################################
 #################################################################
 """
 Different Versions:
 
-    1. []  ONLY one Favorite Table  ---    Nullable entries -- NO   Enum
+    1. [x] ONLY one Favorite Table  ---    Nullable entries -- NO   Enum
 
     2. []  ONLY one Favorite Table  --- NO Nullable entries -- WITH Enum
 
     3. []  ONLY one Favorite Table  --- NO Nullable entries -- NO   Enum -- Many to Many relationship
 
-    4. [x] MULTIPLE Favorite Tables --- NO Nullable entries -- NO   Enum
+    4. []  MULTIPLE Favorite Tables --- NO Nullable entries -- NO   Enum
           (x1 table per category)
 """
+############################################
+#########         Favorite         #########
+############################################
+"""
+TO-DO's:
+
+[x] Name the table with "__tablename__ ="
+
+[x] Create Attributes:
+    [x] id
+    [x] user_id
+    [x] people_id
+    [x] vehicle_id
+    [x] planet_id
+
+[x] Create Relations
+    [x] with User
+    [x] with People
+    [x] with Vehicle
+    [x] with Planet
+
+[x] Create serialization
+
+[x] Create "__repr__" method
+"""
+class Favorite(db.Model):
+    __tablename__ = 'favorite'
+    
+    ### ATTRIBUTES ###
+
+    id:         Mapped[int]           = mapped_column( primary_key=True)
+
+    user_id:    Mapped[int]           = mapped_column( ForeignKey('user.id'),    nullable=False)
+    people_id:  Mapped[Optional[int]] = mapped_column( ForeignKey('people.id'),  nullable=True)
+    vehicle_id: Mapped[Optional[int]] = mapped_column( ForeignKey('vehicle.id'), nullable=True)
+    planet_id:  Mapped[Optional[int]] = mapped_column( ForeignKey('planet.id'),  nullable=True)
+    
+
+    ### RELATIONS ###
+
+    ### DE 4GEEKS
+
+    # Many-to-one relationship with User - the user who created this favorite
+    user: Mapped["User"] = relationship(
+        back_populates="favorites"
+        )
+    
+    # Many-to-one relationship with People - the person being favorited (if applicable)
+    people: Mapped[Optional["People"]] = relationship(
+        back_populates="favorites"
+        )
+    
+    # Many-to-one relationship with Vehicle - the vehicle being favorited (if applicable)
+    vehicle: Mapped[Optional["Vehicle"]] = relationship(
+        back_populates="favorites"
+        )
+    
+    # Many-to-one relationship with Planet - the planet being favorited (if applicable)
+    planet: Mapped[Optional["Planet"]] = relationship(
+        back_populates="favorites"
+        )
+    
+    ### SERIALIZATION ###
+    def serialize(self):
+        favorite_data = {
+            "id": self.id,
+            "user_id": self.user_id
+        }
+
+        if self.people:
+            favorite_data["favorite_type"] = "people"
+            favorite_data["people_id"] = self.people_id
+            favorite_data["people"] = self.people.serialize()
+
+        elif self.vehicle:
+            favorite_data["favorite_type"] = "vehicle"
+            favorite_data["vehicle_id"] = self.vehicle_id
+            favorite_data["vehicle"] = self.vehicle.serialize() 
+
+        elif self.planet:
+            favorite_data["favorite_type"] = "planet"
+            favorite_data["planet_id"] = self.planet_id
+            favorite_data["planet"] = self.planet.serialize()
+            
+        return favorite_data
+
+
+    ### __repr__ METHOD ###
+
+    def __repr__(self):
+        if self.people_id:
+            return f'<Favorite User:{self.user_id} -> People:{self.people_id}>'
+        elif self.vehicle_id:
+            return f'<Favorite User:{self.user_id} -> Vehicle:{self.vehicle_id}>'
+        elif self.planet_id:
+            return f'<Favorite User:{self.user_id} -> Planet:{self.planet_id}>'
+        else:
+            return f'<Favorite User:{self.user_id} -> Unknown>'
+        
 ########################################################################################################
 
 

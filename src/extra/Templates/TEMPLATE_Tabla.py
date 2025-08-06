@@ -6,7 +6,7 @@ TO-DO's:
 
 [] Name the table with "__tablename__ ="
 
-[] Create Atributes:
+[] Create Attributes:
     [] 1. ???
     [] 2. ???
     [] 3. ???
@@ -22,7 +22,7 @@ TO-DO's:
 class ?????(Base):
     __tablename__ = "??????"
 
-    ### ATRIBUTES ###
+    ### ATTRIBUTES ###
 
 
 
