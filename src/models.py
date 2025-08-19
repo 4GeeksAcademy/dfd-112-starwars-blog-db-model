@@ -77,7 +77,7 @@ class User(db.Model):
 
     ### RELATIONS ###
 
-    # One-to-many relationship with FavoriteCharacters - shows all characters this user has favorited
+    # One-to-many relationship with FavoritePeople - shows all characters this user has favorited
     favorite_people: Mapped[List["FavoritePeople"]] = relationship(
         back_populates='user', 
         cascade='all, delete-orphan',
